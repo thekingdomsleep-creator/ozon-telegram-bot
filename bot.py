@@ -3,7 +3,7 @@ import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 
-TOKEN = "ВАШ_ТОКЕН_ТЕЛЕГРАМ"
+TOKEN = "8277705336:AAEStAvtfyDL4Ad_-XGZo2rqh3hYDXyF-5c"
 
 # Логирование
 logging.basicConfig(level=logging.INFO)
