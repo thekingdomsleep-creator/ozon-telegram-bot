@@ -1,73 +1,44 @@
 
-import logging
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
+import telebot
+import os
+from openai import OpenAI
 
-TOKEN = "8277705336:AAEStAvtfyDL4Ad_-XGZo2rqh3hYDXyF-5c"
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-# Логирование
-logging.basicConfig(level=logging.INFO)
+bot = telebot.TeleBot(BOT_TOKEN)
+client = OpenAI(api_key=OPENAI_API_KEY)
 
-# Каталог товаров
-PRODUCTS = {
-    "1": {"name": "Крем для лица", "price": 1200, "desc": "Увлажняющий, 50ml"},
-    "2": {"name": "Сыворотка витамин C", "price": 2100, "desc": "Осветляет кожу"},
-    "3": {"name": "Маска омолаживающая", "price": 1800, "desc": "Эффект лифтинга"},
-}
 
-# Главное меню
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    keyboard = [
-        [InlineKeyboardButton("🛍 Каталог", callback_data="catalog")],
-        [InlineKeyboardButton("🔥 Акции", callback_data="sale")],
-        [InlineKeyboardButton("📞 Поддержка", callback_data="support")]
-    ]
-    await update.message.reply_text(
-        "Добро пожаловать в магазин косметологии!\nВыберите раздел:",
-        reply_markup=InlineKeyboardMarkup(keyboard)
+# ----- Команда START -----
+@bot.message_handler(commands=['start'])
+def start(message):
+    bot.send_message(
+        message.chat.id,
+        "Привет! 👋\n\n"
+        "Я бот-магазин как Ozon + AI помощник.\n"
+        "Напиши, что хочешь найти или спроси что угодно!"
     )
 
-# Обработка кнопок
-async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
 
-    if query.data == "catalog":
-        keyboard = [
-            [InlineKeyboardButton(f"{p['name']} - {p['price']}₽", callback_data=f"product_{pid}")]
-            for pid, p in PRODUCTS.items()
-        ]
-        await query.edit_message_text("Каталог товаров:", reply_markup=InlineKeyboardMarkup(keyboard))
-
-    elif query.data.startswith("product_"):
-        pid = query.data.split("_")[1]
-        p = PRODUCTS[pid]
-        keyboard = [
-            [InlineKeyboardButton("🛒 Купить", url="https://t.me/YourSupport")],
-            [InlineKeyboardButton("⬅ Назад", callback_data="catalog")]
-        ]
-        await query.edit_message_text(
-            f"**{p['name']}**\n"
-            f"Цена: {p['price']}₽\n"
-            f"Описание: {p['desc']}",
-            reply_markup=InlineKeyboardMarkup(keyboard),
-            parse_mode="Markdown"
+# ----- AI ChatGPT -----
+@bot.message_handler(func=lambda msg: True)
+def chatgpt_reply(message):
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "Ты умный продавец как в Ozon. Помогаешь подобрать товары."},
+                {"role": "user", "content": message.text}
+            ]
         )
 
-    elif query.data == "sale":
-        await query.edit_message_text("🔥 Акции скоро появятся!")
+        answer = response.choices[0].message.content
+        bot.send_message(message.chat.id, answer)
 
-    elif query.data == "support":
-        await query.edit_message_text("📞 Поддержка: @YourSupport")
+    except Exception as e:
+        bot.send_message(message.chat.id, f"Ошибка AI: {e}")
 
-# Запуск бота
-def main():
-    app = ApplicationBuilder().token(TOKEN).build()
 
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CallbackQueryHandler(button_handler))
-
-    app.run_polling()
-
-if __name__ == "__main__":
-    main()
+# ----- Запуск -----
+bot.polling(none_stop=True)
